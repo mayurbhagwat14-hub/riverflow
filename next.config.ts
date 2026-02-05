@@ -1,9 +1,15 @@
 import type { NextConfig } from "next";
-import env from "@/app/env"
+import env from "@/app/env";
 
 const nextConfig: NextConfig = {
   images: {
-    domains: [env.appwrite.endpoint],
+    remotePatterns: [
+      {
+        protocol: "https",
+        hostname: new URL(env.appwrite.endpoint).hostname,
+        pathname: "/**",
+      },
+    ],
   },
 };
 
