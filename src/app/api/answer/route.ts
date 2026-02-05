@@ -2,69 +2,87 @@ import { answerCollection, db } from "@/models/name";
 import { databases, users } from "@/models/server/config";
 import { NextRequest, NextResponse } from "next/server";
 import { ID } from "node-appwrite";
-import {UserPrefs} from "@/store/Auth"
+import { UserPrefs } from "@/store/Auth";
 
-export async function POST(request: NextRequest){
+// Ye line Next.js ko bolegi ki isse build ke time render na kare (Solve build error)
+export const dynamic = "force-dynamic";
+
+export async function POST(request: NextRequest) {
   try {
-    const {questionId, answer, authorId} = await request.json();
+    const { questionId, answer, authorId } = await request.json();
 
-    const response = await databases.createDocument(db, answerCollection, ID.unique(), {
-      content: answer,
-      authorId: authorId,
-      questionId: questionId
-    })
+    if (!questionId || !answer || !authorId) {
+      return NextResponse.json(
+        { error: "Missing required fields" },
+        { status: 400 },
+      );
+    }
+
+    const response = await databases.createDocument(
+      db,
+      answerCollection,
+      ID.unique(),
+      {
+        content: answer,
+        authorId: authorId,
+        questionId: questionId,
+      },
+    );
 
     // Increase author reputation
-    const prefs = await users.getPrefs<UserPrefs>(authorId)
-    await users.updatePrefs(authorId, {
-      reputation: Number(prefs.reputation) + 1
-    })
+    try {
+      const prefs = await users.getPrefs<UserPrefs>(authorId);
+      await users.updatePrefs(authorId, {
+        reputation: (Number(prefs.reputation) || 0) + 1,
+      });
+    } catch (prefsError) {
+      console.error("Failed to update prefs:", prefsError);
+      // Reputation fail hone par pura process mat roko
+    }
 
-    return NextResponse.json(response, {
-      status: 201
-    })
-
+    return NextResponse.json(response, { status: 201 });
   } catch (error: any) {
     return NextResponse.json(
-      {
-        error: error?.message || "Error creating answer"
-      },
-      {
-        status: error?.status || error?.code || 500
-      }
-    )
+      { error: error?.message || "Error creating answer" },
+      { status: error?.status || error?.code || 500 },
+    );
   }
 }
 
-export async function DELETE(request: NextRequest){
+export async function DELETE(request: NextRequest) {
   try {
-    const {answerId} = await request.json()
+    const { answerId } = await request.json();
 
-    const answer = await databases.getDocument(db, answerCollection, answerId)
+    if (!answerId) {
+      return NextResponse.json(
+        { error: "Answer ID is required" },
+        { status: 400 },
+      );
+    }
 
-    const response = await databases.deleteDocument(db, answerCollection, answerId)
+    const answer = await databases.getDocument(db, answerCollection, answerId);
 
-    //decrese the reputation
-    const prefs = await users.getPrefs<UserPrefs>(answer.authorId)
-    await users.updatePrefs(answer.authorId, {
-      reputation: Number(prefs.reputation) - 1
-    })
+    const response = await databases.deleteDocument(
+      db,
+      answerCollection,
+      answerId,
+    );
 
-    return NextResponse.json(
-      {data: response},
-      {status: 200}
-  )
+    // Decrease the reputation
+    try {
+      const prefs = await users.getPrefs<UserPrefs>(answer.authorId);
+      await users.updatePrefs(answer.authorId, {
+        reputation: (Number(prefs.reputation) || 0) - 1,
+      });
+    } catch (prefsError) {
+      console.error("Failed to update prefs:", prefsError);
+    }
 
-
-
+    return NextResponse.json({ data: response }, { status: 200 });
   } catch (error: any) {
     return NextResponse.json(
-      {
-        message: error?.message || "Error deleting the answer"
-      },
-      {
-        status: error?.status || error?.code || 500
-      }
-    )
+      { message: error?.message || "Error deleting the answer" },
+      { status: error?.status || error?.code || 500 },
+    );
   }
 }
