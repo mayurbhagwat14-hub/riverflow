@@ -17,10 +17,12 @@ import Search from "./Search";
 const Page = async ({
   searchParams,
 }: {
-  searchParams: { page?: string; tag?: string; search?: string };
+  searchParams: Promise<{ page?: string; tag?: string; search?: string }>;
 }) => {
+
+  const resolveSearchParams = await searchParams;
   // Fix: Ensure page is treated as a number safely
-  const page = parseInt(searchParams.page || "1", 10);
+  const page = parseInt(resolveSearchParams.page || "1", 10);
 
   const queries = [
     Query.orderDesc("$createdAt"),
@@ -28,13 +30,13 @@ const Page = async ({
     Query.limit(25),
   ];
 
-  if (searchParams.tag) queries.push(Query.equal("tags", searchParams.tag));
+  if (resolveSearchParams.tag) queries.push(Query.equal("tags", resolveSearchParams.tag));
 
-  if (searchParams.search) {
+  if (resolveSearchParams.search) {
     queries.push(
       Query.or([
-        Query.search("title", searchParams.search),
-        Query.search("content", searchParams.search),
+        Query.search("title", resolveSearchParams.search),
+        Query.search("content", resolveSearchParams.search),
       ]),
     );
   }
@@ -48,15 +50,15 @@ const Page = async ({
       Query.offset((page - 1) * 25),
       Query.limit(25),
     ];
-    if (searchParams.tag)
-      basicQueries.push(Query.equal("tags", searchParams.tag));
+    if (resolveSearchParams.tag)
+      basicQueries.push(Query.equal("tags", resolveSearchParams.tag));
 
-    if (searchParams.search) {
+    if (resolveSearchParams.search) {
       try {
         basicQueries.push(
           Query.or([
-            Query.contains("title", searchParams.search),
-            Query.contains("content", searchParams.search),
+            Query.contains("title", resolveSearchParams.search),
+            Query.contains("content", resolveSearchParams.search),
           ]),
         );
         questions = await databases.listDocuments(
@@ -70,8 +72,8 @@ const Page = async ({
           Query.offset((page - 1) * 25),
           Query.limit(25),
         ];
-        if (searchParams.tag)
-          fallbackQueries.push(Query.equal("tags", searchParams.tag));
+        if (resolveSearchParams.tag)
+          fallbackQueries.push(Query.equal("tags", resolveSearchParams.tag));
         questions = await databases.listDocuments(
           db,
           questionCollection,
@@ -153,8 +155,8 @@ const Page = async ({
               No questions found
             </h3>
             <p className="mb-4 text-gray-600 dark:text-gray-300">
-              {searchParams.search
-                ? `No questions match your search for "${searchParams.search}"`
+              {resolveSearchParams.search
+                ? `No questions match your search for "${resolveSearchParams.search}"`
                 : "Be the first to ask a question!"}
             </p>
             <Link href="/questions/ask">

@@ -14,6 +14,8 @@ const Page = async ({
     searchParams: Promise<{ page ?: string }>;
 }) => {
 
+    const resolveSearchParams = await searchParams;
+
     let {page} = await searchParams;
 
     ( page as any) ||= "1";
